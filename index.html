@@ -98,10 +98,14 @@
         // IMPORTANT: For Azure deployment, it is recommended to set this API key 
         // via Application Settings (Environment Variables) and use a backend proxy.
         // For this client-side demo, we use a placeholder.
-        const apiKey = ""; 
+        // Get API key from environment variable or use hardcoded for testing
+        const apiKey = "%GEMINI_API_KEY%" || "AIzaSyD3Kmxxpf1Bq3zVPmMROSk7KHBpGePDTk8"; 
 
         const callGemini = async (prompt, systemInstruction = "") => {
-            if (!apiKey) return null;
+            if (!apiKey || apiKey === "%GEMINI_API_KEY%") {
+                console.warn("Gemini API key not configured properly");
+                return null;
+            }
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
