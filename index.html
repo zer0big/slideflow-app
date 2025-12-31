@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlideFlow - Pure Fidelity Converter</title>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* Slate 950 */
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* Animation Utils */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        .animate-pulse-slow { animation: pulse-slow 8s infinite; }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Icons (Embedded SVG for reliability) ---
+        const Icon = ({ path, className = "w-6 h-6" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: path }} />
+        );
+
+        const Icons = {
+            Layers: (props) => <Icon {...props} path='<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>' />,
+            Sparkles: (props) => <Icon {...props} path='<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/><path d="M3 9h4"/>' />,
+            FileText: (props) => <Icon {...props} path='<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>' />,
+            Upload: (props) => <Icon {...props} path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>' />,
+            Bot: (props) => <Icon {...props} path='<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>' />,
+            MessageSquare: (props) => <Icon {...props} path='<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' />,
+            Terminal: (props) => <Icon {...props} path='<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>' />,
+            MonitorPlay: (props) => <Icon {...props} path='<path d="m10 7 5 3-5 3Z"/><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/>' />,
+            CheckCircle2: (props) => <Icon {...props} path='<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/>' />,
+            Loader2: (props) => <Icon {...props} className={props.className + " animate-spin"} path='<path d="M21 12a9 9 0 1 1-6.219-8.56"/>' />,
+            Zap: (props) => <Icon {...props} path='<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' />,
+            AlertCircle: (props) => <Icon {...props} path='<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' />
+        };
+
+        // --- Library Loader ---
+        const loadScript = (src) => {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        };
+
+        const PDF_JS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        const PDF_WORKER_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        const PPTX_GEN_URL = "https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
+
+        // IMPORTANT: For Azure deployment, it is recommended to set this API key 
+        // via Application Settings (Environment Variables) and use a backend proxy.
+        // For this client-side demo, we use a placeholder.
+        const apiKey = ""; 
+
+        const callGemini = async (prompt, systemInstruction = "") => {
+            if (!apiKey) return null;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+            };
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+            } catch (error) {
+                console.error("AI Error:", error);
+                return null;
+            }
+        };
+
+        function App() {
+            const [isReady, setIsReady] = useState(false);
+            const [file, setFile] = useState(null);
+            const [status, setStatus] = useState('idle');
+            const [progress, setProgress] = useState(0);
+            const [log, setLog] = useState([]);
+            
+            // Options
+            const [useAISummary, setUseAISummary] = useState(false);
+            const [useAISpeakerNotes, setUseAISpeakerNotes] = useState(false);
+            
+            useEffect(() => {
+                const init = async () => {
+                    try {
+                        await loadScript(PDF_JS_URL);
+                        await loadScript(PPTX_GEN_URL);
+                        if (window.pdfjsLib) {
+                            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
+                        }
+                        setIsReady(true);
+                        addLog("SlideFlow Engine Initialized");
+                        addLog("Ready for high-fidelity conversion.");
+                    } catch (e) {
+                        console.error(e);
+                        addLog("System Error: Failed to load core libraries.", "error");
+                    }
+                };
+                init();
+            }, []);
+
+            const addLog = (message, type = "info") => {
+                const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+                setLog((prev) => [...prev, { message, type, time }]);
+            };
+
+            const handleFileChange = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    setFile(e.target.files[0]);
+                    setStatus('idle');
+                    setProgress(0);
+                    setLog([]);
+                    addLog(`File loaded: ${e.target.files[0].name}`);
+                }
+            };
+
+            const convertPdfToPptx = async () => {
+                if (!file || !window.pdfjsLib || !window.PptxGenJS) return;
+
+                setStatus('processing');
+                addLog("Starting Conversion Pipeline...");
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    const pres = new window.PptxGenJS();
+                    const totalPages = pdf.numPages;
+                    let fullDocText = "";
+
+                    if (useAISummary || useAISpeakerNotes) {
+                        addLog("Analyzing document context...");
+                        for (let i = 1; i <= totalPages; i++) {
+                            const p = await pdf.getPage(i);
+                            const tc = await p.getTextContent();
+                            fullDocText += tc.items.map(it => it.str).join(" ");
+                        }
+                    }
+
+                    if (useAISummary) {
+                        addLog("Generating Executive Summary...");
+                        const summary = await callGemini(
+                            `Summarize this document into 5 bullet points for a slide. Content:\n${fullDocText.substring(0, 10000)}`,
+                            "Professional Business Analyst"
+                        );
+                        if (summary) {
+                            const s = pres.addSlide();
+                            s.addText("Executive Summary", { x:0.5, y:0.5, fontSize:32, bold:true, color:'111827' });
+                            s.addText(summary, { x:0.5, y:1.5, w:'90%', fontSize:18, color:'374151' });
+                            addLog("Summary slide created.");
+                        }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                    for (let i = 1; i <= totalPages; i++) {
+                        setProgress(Math.round((i / totalPages) * 100));
+                        const page = await pdf.getPage(i);
+                        
+                        let speakerNotes = "";
+                        if (useAISpeakerNotes) {
+                            const tc = await page.getTextContent();
+                            const txt = tc.items.map(it => it.str).join(" ");
+                            const noteRes = await callGemini(
+                                `Write speaker notes for this slide: ${txt.substring(0, 1000)}`,
+                                "Presentation Coach"
+                            );
+                            if (noteRes) speakerNotes = noteRes;
+                        }
+
+                        const scale = 3.0; 
+                        const viewport = page.getViewport({ scale: scale });
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        
+                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        const bgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+
+                        const pdfW = viewport.width / scale / 72;
+                        const pdfH = viewport.height / scale / 72;
+                        
+                        const slide = pres.addSlide();
+                        slide.background = { data: bgDataUrl };
+
+                        if (speakerNotes) slide.addNotes(speakerNotes);
+
+                        addLog(`Page ${i}/${totalPages} processed.`);
+                    }
+
+                    const fileName = file.name.replace('.pdf', '') + '_SlideFlow.pptx';
+                    await pres.writeFile({ fileName: fileName });
+                    
+                    setStatus('success');
+                    addLog("Conversion Complete. Download started.", "success");
+
+                } catch (error) {
+                    console.error(error);
+                    setStatus('error');
+                    addLog(`Error: ${error.message}`, "error");
+                }
+            };
+
+            return (
+                <div className="relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden selection:bg-indigo-500/30">
+                    
+                    {/* Ambient Background */}
+                    <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+                    <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-fuchsia-600/10 rounded-full blur-[120px] animate-pulse-slow" style={{animationDelay: '2s'}}></div>
+
+                    <div className="relative z-10 w-full max-w-5xl">
+                        
+                        {/* Header */}
+                        <header className="mb-8 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                                    <Icons.Layers className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-black tracking-tight text-white">SlideFlow</h1>
+                                    <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">Pure Fidelity Converter</p>
+                                </div>
+                            </div>
+                            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-indigo-300">
+                                <Icons.Sparkles className="w-3 h-3" />
+                                <span>AI ENHANCED</span>
+                            </div>
+                        </header>
+
+                        {/* Main Glass Panel */}
+                        <div className="glass-panel rounded-3xl overflow-hidden shadow-2xl">
+                            
+                            <div className="flex flex-col lg:flex-row">
+                                
+                                {/* Left: Upload Zone */}
+                                <div className="lg:w-5/12 p-8 border-b lg:border-b-0 lg:border-r border-white/5 bg-slate-900/30">
+                                    <div className={`relative h-full min-h-[320px] rounded-2xl border-2 border-dashed transition-all duration-300 group cursor-pointer overflow-hidden flex flex-col items-center justify-center text-center
+                                        ${file ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-slate-700 hover:border-indigo-400/50 hover:bg-slate-800/50'}`}>
+                                        
+                                        <input type="file" accept=".pdf" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" />
+                                        
+                                        {file ? (
+                                            <div className="relative z-10 p-6 animate-float">
+                                                <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-xl mb-4">
+                                                    <Icons.FileText className="w-8 h-8 text-white" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-white mb-1 px-2 truncate max-w-[200px] mx-auto">{file.name}</h3>
+                                                <p className="text-indigo-300 text-xs font-mono">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                            </div>
+                                        ) : (
+                                            <div className="relative z-10 p-6 group-hover:scale-105 transition-transform">
+                                                <div className="w-16 h-16 mx-auto bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg mb-4 group-hover:bg-slate-700 transition-colors">
+                                                    <Icons.Upload className="w-7 h-7 text-slate-400 group-hover:text-indigo-400" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-200 mb-2">Drop PDF</h3>
+                                                <p className="text-slate-500 text-xs leading-relaxed max-w-[180px] mx-auto">
+                                                    Upload your document.<br/>We preserve every pixel.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Controls & Terminal */}
+                                <div className="lg:w-7/12 p-8 flex flex-col gap-6">
+                                    
+                                    {/* Feature Toggles */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div onClick={() => setUseAISummary(!useAISummary)} 
+                                             className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-3 select-none ${useAISummary ? 'bg-indigo-500/10 border-indigo-500/40' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                                            <div className={`p-2 rounded-lg ${useAISummary ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                                                <Icons.Bot className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <div className={`text-sm font-bold ${useAISummary ? 'text-indigo-300' : 'text-slate-400'}`}>AI Summary</div>
+                                                <div className="text-[10px] text-slate-500">Add Executive Summary slide</div>
+                                            </div>
+                                        </div>
+
+                                        <div onClick={() => setUseAISpeakerNotes(!useAISpeakerNotes)} 
+                                             className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-3 select-none ${useAISpeakerNotes ? 'bg-fuchsia-500/10 border-fuchsia-500/40' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                                            <div className={`p-2 rounded-lg ${useAISpeakerNotes ? 'bg-fuchsia-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                                                <Icons.MessageSquare className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <div className={`text-sm font-bold ${useAISpeakerNotes ? 'text-fuchsia-300' : 'text-slate-400'}`}>Speaker Notes</div>
+                                                <div className="text-[10px] text-slate-500">Generate script for slides</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Terminal */}
+                                    <div className="flex-1 min-h-[180px] bg-[#090b10] rounded-xl border border-white/10 flex flex-col overflow-hidden font-mono text-xs">
+                                        <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                                <Icons.Terminal className="w-3 h-3" />
+                                                <span>SYSTEM_STATUS</span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <div className="w-2 h-2 rounded-full bg-slate-700"></div>
+                                                <div className="w-2 h-2 rounded-full bg-slate-700"></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                                            {log.length === 0 && (
+                                                <div className="h-full flex flex-col items-center justify-center opacity-30 gap-2 text-slate-400">
+                                                    <Icons.MonitorPlay className="w-8 h-8" />
+                                                    <span>Engine Idle...</span>
+                                                </div>
+                                            )}
+                                            {log.map((entry, i) => (
+                                                <div key={i} className="mb-2 flex items-start gap-3">
+                                                    <span className="text-slate-600 shrink-0">[{entry.time}]</span>
+                                                    <span className={`${
+                                                        entry.type === 'error' ? 'text-red-400' : 
+                                                        entry.type === 'success' ? 'text-emerald-400' : 'text-slate-300'
+                                                    }`}>
+                                                        {entry.type === 'success' && <Icons.CheckCircle2 className="inline w-3 h-3 mr-1"/>}
+                                                        {entry.message}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {log.length > 0 && <div className="mt-2 w-1.5 h-3 bg-indigo-500 animate-pulse"></div>}
+                                        </div>
+                                    </div>
+
+                                    {/* CTA Button */}
+                                    <button 
+                                        onClick={convertPdfToPptx}
+                                        disabled={!file || status === 'processing' || !isReady}
+                                        className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all shadow-lg
+                                        ${!file || !isReady 
+                                            ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 active:scale-[0.98]'}`}
+                                    >
+                                        {status === 'processing' ? (
+                                            <><Icons.Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                                        ) : (
+                                            <><Icons.Zap className={`w-5 h-5 ${file ? 'text-yellow-300' : ''}`} /> Convert to PowerPoint</>
+                                        )}
+                                    </button>
+
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-6 text-center">
+                            <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">
+                                Secure Client-Side Processing • SlideFlow v1.1
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
