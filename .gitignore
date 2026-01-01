@@ -1,0 +1,27 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# API keys and secrets
+*apikey*
+*secret*
+*token*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp

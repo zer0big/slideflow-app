@@ -95,15 +95,14 @@
         const PDF_WORKER_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
         const PPTX_GEN_URL = "https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
 
-        // IMPORTANT: For Azure deployment, it is recommended to set this API key 
-        // via Application Settings (Environment Variables) and use a backend proxy.
-        // For this client-side demo, we use a placeholder.
-        // Get API key from environment variable or use hardcoded for testing
-        const apiKey = "%GEMINI_API_KEY%" || "AIzaSyD3Kmxxpf1Bq3zVPmMROSk7KHBpGePDTk8"; 
+        // IMPORTANT: API key must be set via Azure Static Web Apps Application Settings
+        // DO NOT hardcode API keys in source code - security risk!
+        // Set GEMINI_API_KEY in Azure Portal -> Static Web App -> Configuration -> Application Settings
+        const apiKey = "%GEMINI_API_KEY%"; 
 
         const callGemini = async (prompt, systemInstruction = "") => {
             if (!apiKey || apiKey === "%GEMINI_API_KEY%") {
-                console.warn("Gemini API key not configured properly");
+                console.error("⚠️ Gemini API key not configured. Please set GEMINI_API_KEY in Azure Application Settings.");
                 return null;
             }
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
